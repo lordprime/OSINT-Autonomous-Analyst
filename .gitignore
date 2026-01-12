@@ -1,0 +1,45 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Python
+venv/
+.venv/
+*.pyc
+__pycache__/
+
+# Environment
+.env
+*.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Secrets
+*.key
+*.pem
+secrets/
+credentials/
+
+# Agent
+.agent/

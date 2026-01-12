@@ -1,0 +1,222 @@
+services:
+  # ============================================
+  # Graph Database - Neo4j
+  # ============================================
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: oaa_neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/osint_secure_password_change_me
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+      - NEO4J_dbms_memory_heap_max__size=4G
+      - NEO4J_dbms_memory_pagecache_size=2G
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./database/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+    networks:
+      - oaa_network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "osint_secure_password_change_me", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # Temporal Database - TimescaleDB (PostgreSQL)
+  # ============================================
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: oaa_timescale
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=osint
+      - POSTGRES_PASSWORD=osint_timescale_password_change_me
+      - POSTGRES_DB=osint_temporal
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./database/timescale/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    networks:
+      - oaa_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osint"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # Search & Entity Store - Elasticsearch
+  # ============================================
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: oaa_elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - oaa_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # Vector Database - Weaviate (TEMPORARILY DISABLED - Docker Hub timeout)
+  # ============================================
+  # weaviate:
+  #   image: semitechnologies/weaviate:1.23.0
+  #   container_name: oaa_weaviate
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - QUERY_DEFAULTS_LIMIT=25
+  #     - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+  #     - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+  #     - DEFAULT_VECTORIZER_MODULE=text2vec-transformers
+  #     - ENABLE_MODULES=text2vec-transformers
+  #     - CLUSTER_HOSTNAME=node1
+  #   volumes:
+  #     - weaviate_data:/var/lib/weaviate
+  #   networks:
+  #     - oaa_network
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/.well-known/ready"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+
+  # ============================================
+  # Cache & Rate Limiting - Redis
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: oaa_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass osint_redis_password_change_me
+    volumes:
+      - redis_data:/data
+    networks:
+      - oaa_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # Object Storage - MinIO (S3-compatible)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: oaa_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=osint_admin
+      - MINIO_ROOT_PASSWORD=osint_minio_password_change_me
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - oaa_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # Backend API - FastAPI
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oaa_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=osint_secure_password_change_me
+      - TIMESCALE_HOST=timescaledb
+      - TIMESCALE_PORT=5432
+      - TIMESCALE_USER=osint
+      - TIMESCALE_PASSWORD=osint_timescale_password_change_me
+      - TIMESCALE_DB=osint_temporal
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - WEAVIATE_URL=http://weaviate:8080
+      - REDIS_URL=redis://:osint_redis_password_change_me@redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=osint_admin
+      - MINIO_SECRET_KEY=osint_minio_password_change_me
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - oaa_network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # Frontend - Next.js
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: oaa_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - oaa_network
+    command: npm run dev
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  oaa_network:
+    driver: bridge
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  timescale_data:
+  elasticsearch_data:
+  weaviate_data:
+  redis_data:
+  minio_data:
