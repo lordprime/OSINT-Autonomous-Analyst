@@ -40,15 +40,26 @@ copy .env.example .env # Windows
 # Edit the .env file and add your API keys
 ```
 
-**Required API Keys:**
-- `ANTHROPIC_API_KEY` - For Claude AI reasoning (get from [Anthropic Console](https://console.anthropic.com/))
-- `OPENAI_API_KEY` - For GPT reasoning (get from [OpenAI Platform](https://platform.openai.com/))
+**LLM Options (choose ONE):**
 
-**Optional API Keys (for data collection):**
-- `TWITTER_BEARER_TOKEN` - Twitter/X data collection
-- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` - Reddit data collection
+| Option | Cost | Setup |
+|--------|------|-------|
+| **Ollama** (Recommended) | FREE | Install from [ollama.ai](https://ollama.ai), run `ollama pull llama3:8b` |
+| **Groq** | FREE | Get free API key at [console.groq.com](https://console.groq.com) |
+| **Claude** | Paid | Get key from [Anthropic Console](https://console.anthropic.com/) |
+| **OpenAI** | Paid | Get key from [OpenAI Platform](https://platform.openai.com/) |
+
+**Data Collection (all optional):**
+- `TWITTER_BEARER_TOKEN` - Twitter/X
+- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` - Reddit
+- `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` - Telegram channels
 - `SHODAN_API_KEY` - Infrastructure reconnaissance
-- `CENSYS_API_ID` / `CENSYS_API_SECRET` - Certificate & host search
+
+**No API required:**
+- DuckDuckGo search
+- Instagram (public profiles)
+- LinkedIn (public pages)
+- Facebook (public pages)
 
 #### Step 3: Start All Services
 ```bash
