@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 
 # Next.js
 .next/
@@ -17,10 +16,10 @@ venv/
 *.pyc
 __pycache__/
 
-# Environment
+# Environment (secrets only, keep examples)
 .env
-*.env
-.env.*
+.env.local
+.env.*.local
 !.env.example
 
 # IDE
