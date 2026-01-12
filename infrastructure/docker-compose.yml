@@ -17,7 +17,7 @@ services:
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
-      - ./database/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+      - ../database/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     networks:
       - oaa_network
     healthcheck:
@@ -40,7 +40,7 @@ services:
       - POSTGRES_DB=osint_temporal
     volumes:
       - timescale_data:/var/lib/postgresql/data
-      - ./database/timescale/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ../database/timescale/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
     networks:
       - oaa_network
     healthcheck:
@@ -144,7 +144,7 @@ services:
   # ============================================
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: oaa_backend
     ports:
@@ -176,7 +176,7 @@ services:
       minio:
         condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ../backend:/app
     networks:
       - oaa_network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -186,7 +186,7 @@ services:
   # ============================================
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     container_name: oaa_frontend
     ports:
@@ -196,7 +196,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app
+      - ../frontend:/app
       - /app/node_modules
     networks:
       - oaa_network
