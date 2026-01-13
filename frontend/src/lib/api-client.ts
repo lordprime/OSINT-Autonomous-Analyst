@@ -1,7 +1,7 @@
-"""
-API Client for Frontend
-Type - safe API calls to backend with error handling
-"""
+/**
+ * API Client for Frontend
+ * Type-safe API calls to backend with error handling
+ */
 
 const API_BASE_URL = (() => {
     const envUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
