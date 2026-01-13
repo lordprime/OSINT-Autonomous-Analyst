@@ -1,0 +1,78 @@
+{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "refresh_interval": "5s",
+    "analysis": {
+      "analyzer": {
+        "osint_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "snowball"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "investigation_id": {
+        "type": "keyword"
+      },
+      "entity_id": {
+        "type": "keyword"
+      },
+      "entity_name": {
+        "type": "text",
+        "analyzer": "osint_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "entity_type": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "osint_analyzer"
+      },
+      "source": {
+        "type": "keyword"
+      },
+      "source_url": {
+        "type": "keyword"
+      },
+      "confidence": {
+        "type": "float"
+      },
+      "collected_at": {
+        "type": "date"
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "metadata": {
+        "type": "object",
+        "enabled": false
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "relationships": {
+        "type": "nested",
+        "properties": {
+          "target_entity_id": {
+            "type": "keyword"
+          },
+          "relationship_type": {
+            "type": "keyword"
+          },
+          "confidence": {
+            "type": "float"
+          }
+        }
+      }
+    }
+  }
+}
