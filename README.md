@@ -62,9 +62,17 @@ copy .env.example .env # Windows
 - Facebook (public pages)
 
 #### Step 3: Start All Services
+
 ```bash
 # Navigate to infrastructure folder
 cd ../infrastructure
+
+# Generate Security Secrets (Required)
+# Linux/Mac:
+chmod +x setup_secrets.sh && ./setup_secrets.sh
+
+# Windows (run in git bash or manually create files in 'secrets' folder):
+# sh setup_secrets.sh
 
 # Start all Docker services (databases + backend + frontend)
 docker-compose up -d

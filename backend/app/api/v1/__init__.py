@@ -2,18 +2,20 @@
 API v1 Router - Main entry point for all API endpoints
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.api.deps import get_current_user
 
 # Import sub-routers (will be implemented by other agents)
 # from app.api.v1.endpoints import investigations, entities, collection, reasoning, audit
 
-router = APIRouter()
+# Enforce Authentication on ALL v1 endpoints
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Placeholder routes - will be expanded by Agent 3, 4, 5
 
 @router.get("/status")
 async def api_status():
-    """API status endpoint"""
+    """API status endpoint (Authenticated)"""
     return {
         "api_version": "v1",
         "status": "operational",
@@ -25,6 +27,11 @@ async def api_status():
             "audit_logs": "ready"
         }
     }
+
+@router.get("/whoami")
+async def whoami(current_user: dict = Depends(get_current_user)):
+    """Debug endpoint to verify auth"""
+    return {"user": current_user}
 
 # Routes will be added by other agents:
 # router.include_router(investigations.router, prefix="/investigations", tags=["investigations"])

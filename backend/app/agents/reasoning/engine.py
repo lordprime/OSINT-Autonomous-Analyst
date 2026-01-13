@@ -172,6 +172,7 @@ class ReasoningEngine(ABC):
 class ClaudeReasoningEngine(ReasoningEngine):
     """
     Claude 3.5 Sonnet implementation with structured outputs.
+    Hardened against prompt injection via System Prompts.
     """
     
     def __init__(self):
@@ -203,36 +204,36 @@ class ClaudeReasoningEngine(ReasoningEngine):
         if not self.client:
             raise RuntimeError("Claude client not initialized")
         
-        prompt = f"""You are an investigative planning agent for OSINT analysis.
-
-Given this investigation goal:
-{investigation_goal}
-
-Current context:
-{json.dumps(current_context, indent=2)}
-
-Decompose this goal into executable collection tasks.
+        system_instruction = """You are an investigative planning agent for OSINT analysis.
+Decompose the user's investigation goal into executable collection tasks.
 
 Respond ONLY with valid JSON in this exact structure:
-{{
+{
   "tasks": [
-    {{
+    {
       "task_id": "task_1",
       "description": "Search company X in SEC EDGAR",
       "agent_type": "surface_web",
       "dependencies": [],
       "estimated_duration_seconds": 120
-    }}
+    }
   ],
   "reasoning": "Explain your planning logic here",
   "confidence": 0.85
-}}"""
+}"""
+
+        user_content = f"""Investigation Goal:
+{investigation_goal}
+
+Current Context:
+{json.dumps(current_context, indent=2)}"""
         
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}]
+                system=system_instruction,
+                messages=[{"role": "user", "content": user_content}]
             )
             
             # Parse JSON response
@@ -272,20 +273,13 @@ Respond ONLY with valid JSON in this exact structure:
         if not self.client:
             raise RuntimeError("Claude client not initialized")
         
-        prompt = f"""You are a hypothesis generator for intelligence analysis.
-
-Graph patterns detected:
-{json.dumps(graph_context, indent=2)}
-
-Text context:
-{text_context}
-
-Generate 3-5 testable, specific hypotheses.
+        system_instruction = """You are a hypothesis generator for intelligence analysis.
+Generate 3-5 testable, specific hypotheses based on the provided graph patterns and text context.
 
 Respond ONLY with valid JSON:
-{{
+{
   "hypotheses": [
-    {{
+    {
       "id": "hyp_1",
       "text": "Person A is beneficial owner of Organization B",
       "specificity": 0.8,
@@ -293,17 +287,24 @@ Respond ONLY with valid JSON:
       "prior_plausibility": 0.6,
       "evidence_required": ["Financial disclosures", "Corporate filings"],
       "evidence_that_would_refute": ["Third-party owner confirmation"]
-    }}
+    }
   ],
   "reasoning": "Explain hypothesis generation logic",
   "confidence": 0.75
-}}"""
+}"""
+
+        user_content = f"""Graph patterns detected:
+{json.dumps(graph_context, indent=2)}
+
+Text context:
+{text_context}"""
         
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}]
+                system=system_instruction,
+                messages=[{"role": "user", "content": user_content}]
             )
             
             content = response.content[0].text
@@ -352,24 +353,11 @@ Respond ONLY with valid JSON:
             for e in contradicting_evidence
         ])
         
-        prompt = f"""You are testing this hypothesis using Bayesian reasoning:
-
-Hypothesis: {hypothesis_text}
-
-Supporting Evidence:
-{support_text}
-
-Contradicting Evidence:
-{contradict_text}
-
-Provide Bayesian update:
-1. Prior probability (before this evidence): 0.5
-2. Likelihood ratio based on evidence strength
-3. Posterior probability
-4. Verdict: confirmed / refuted / inconclusive
+        system_instruction = """You are testing a hypothesis using Bayesian reasoning.
+Provide a Bayesian update based on the evidence.
 
 Respond ONLY with valid JSON:
-{{
+{
   "prior": 0.5,
   "likelihood_ratio": 2.5,
   "posterior": 0.71,
@@ -377,13 +365,22 @@ Respond ONLY with valid JSON:
   "reasoning": "Explain Bayesian logic",
   "missing_evidence": ["List evidence gaps"],
   "confidence": 0.80
-}}"""
+}"""
+
+        user_content = f"""Hypothesis: {hypothesis_text}
+
+Supporting Evidence:
+{support_text}
+
+Contradicting Evidence:
+{contradict_text}"""
         
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
+                system=system_instruction,
+                messages=[{"role": "user", "content": user_content}]
             )
             
             content = response.content[0].text
@@ -425,13 +422,7 @@ Respond ONLY with valid JSON:
         if not self.client:
             raise RuntimeError("Claude client not initialized")
         
-        prompt = f"""Generate a narrative explanation for this question about entity {entity_id}:
-
-Question: {question}
-
-Graph context:
-{json.dumps(graph_context, indent=2)}
-
+        system_instruction = """Generate a narrative explanation for a question about an entity.
 Provide:
 1. Natural language explanation
 2. Evidence timeline (chronological)
@@ -439,19 +430,26 @@ Provide:
 4. Competing interpretations
 
 Respond with JSON:
-{{
+{
   "explanation": "Clear narrative explanation",
-  "evidence_timeline": [{{"timestamp": 1704067200, "event": "...", "impact": "..."}}],
-  "counterfactuals": [{{"remove_evidence_id": "ev_1", "impact": "Score drops to 0.4"}}],
+  "evidence_timeline": [{"timestamp": 1704067200, "event": "...", "impact": "..."}],
+  "counterfactuals": [{"remove_evidence_id": "ev_1", "impact": "Score drops to 0.4"}],
   "competing_interpretations": ["Alternative explanation 1", "Alternative 2"],
   "confidence": 0.85
-}}"""
+}"""
+
+        user_content = f"""Question: {question}
+Entity ID: {entity_id}
+
+Graph Context:
+{json.dumps(graph_context, indent=2)}"""
         
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=3000,
-                messages=[{"role": "user", "content": prompt}]
+                system=system_instruction,
+                messages=[{"role": "user", "content": user_content}]
             )
             
             content = response.content[0].text

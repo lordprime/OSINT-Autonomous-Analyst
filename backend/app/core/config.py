@@ -1,10 +1,28 @@
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from typing import List, Optional, Any
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_secret(secret_name: str, default: Any = None) -> Any:
+    """
+    Get secret from Docker Secret file or environment variable.
+    Prioritizes /run/secrets/{secret_name}.
+    """
+    secret_path = f"/run/secrets/{secret_name}"
+    try:
+        if os.path.exists(secret_path):
+            with open(secret_path, "r") as f:
+                return f.read().strip()
+    except Exception as e:
+        logger.warning(f"Could not read secret {secret_name}: {e}")
+    
+    return os.getenv(secret_name.upper(), default)
 
 class Settings(BaseSettings):
     """
-    Application configuration loaded from environment variables.
+    Application configuration loaded from environment variables and Docker Secrets.
     """
     
     # ============================================
@@ -15,6 +33,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    API_V1_STR: str = "/api/v1"
     
     # CORS
     CORS_ORIGINS: List[str] = [
@@ -30,14 +49,14 @@ class Settings(BaseSettings):
     # Neo4j (Graph Database)
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = "osint_secure_password_change_me"
+    NEO4J_PASSWORD: str = get_secret("neo4j_password", "osint_secure_password_change_me")
     NEO4J_DATABASE: str = "neo4j"
     
     # TimescaleDB (PostgreSQL)
     TIMESCALE_HOST: str = "localhost"
     TIMESCALE_PORT: int = 5432
     TIMESCALE_USER: str = "osint"
-    TIMESCALE_PASSWORD: str = "osint_timescale_password_change_me"
+    TIMESCALE_PASSWORD: str = get_secret("timescale_password", "osint_timescale_password_change_me")
     TIMESCALE_DB: str = "osint_temporal"
     
     # Elasticsearch
@@ -48,12 +67,16 @@ class Settings(BaseSettings):
     WEAVIATE_URL: str = "http://localhost:8080"
     
     # Redis (Cache & Rate Limiting)
-    REDIS_URL: str = "redis://:osint_redis_password_change_me@localhost:6379/0"
+    REDIS_PASSWORD: str = get_secret("redis_password", "osint_redis_password_change_me")
+    
+    @property
+    def REDIS_URL(self) -> str:
+        return f"redis://:{self.REDIS_PASSWORD}@localhost:6379/0"
     
     # MinIO (S3-compatible Object Storage)
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "osint_admin"
-    MINIO_SECRET_KEY: str = "osint_minio_password_change_me"
+    MINIO_SECRET_KEY: str = get_secret("minio_secret_key", "osint_minio_password_change_me")
     MINIO_SECURE: bool = False
     MINIO_BUCKET_RAW_DATA: str = "oaa-raw-data"
     MINIO_BUCKET_AUDIT: str = "oaa-audit-logs"
@@ -66,11 +89,11 @@ class Settings(BaseSettings):
     DEFAULT_REASONING_PROVIDER: str = "claude"  # claude | gpt4 | llama
     
     # Claude
-    ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = get_secret("anthropic_api_key")
     CLAUDE_MODEL: str = "claude-3-5-sonnet-20240620"
     
     # OpenAI
-    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = get_secret("openai_api_key")
     GPT4_MODEL: str = "gpt-4-turbo-preview"
     
     # Llama (Local)
@@ -82,7 +105,7 @@ class Settings(BaseSettings):
     # ============================================
     
     # JWT Authentication
-    SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION_TO_SECURE_RANDOM_STRING"
+    SECRET_KEY: str = get_secret("app_secret_key", "CHANGE_ME_IN_PRODUCTION_TO_SECURE_RANDOM_STRING")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -102,21 +125,21 @@ class Settings(BaseSettings):
     # ============================================
     
     # Twitter/X
-    TWITTER_BEARER_TOKEN: Optional[str] = None
-    TWITTER_API_KEY: Optional[str] = None
-    TWITTER_API_SECRET: Optional[str] = None
+    TWITTER_BEARER_TOKEN: Optional[str] = get_secret("twitter_bearer_token")
+    TWITTER_API_KEY: Optional[str] = get_secret("twitter_api_key")
+    TWITTER_API_SECRET: Optional[str] = get_secret("twitter_api_secret")
     
     # Reddit
-    REDDIT_CLIENT_ID: Optional[str] = None
-    REDDIT_CLIENT_SECRET: Optional[str] = None
+    REDDIT_CLIENT_ID: Optional[str] = get_secret("reddit_client_id")
+    REDDIT_CLIENT_SECRET: Optional[str] = get_secret("reddit_client_secret")
     REDDIT_USER_AGENT: str = "OSINT Autonomous Analyst v0.1"
     
     # Shodan
-    SHODAN_API_KEY: Optional[str] = None
+    SHODAN_API_KEY: Optional[str] = get_secret("shodan_api_key")
     
     # Censys
-    CENSYS_API_ID: Optional[str] = None
-    CENSYS_API_SECRET: Optional[str] = None
+    CENSYS_API_ID: Optional[str] = get_secret("censys_api_id")
+    CENSYS_API_SECRET: Optional[str] = get_secret("censys_api_secret")
     
     # ============================================
     # Rate Limiting
@@ -136,8 +159,8 @@ class Settings(BaseSettings):
     # ============================================
     
     PROXY_PROVIDER: Optional[str] = None  # brightdata | smartproxy | custom
-    PROXY_USERNAME: Optional[str] = None
-    PROXY_PASSWORD: Optional[str] = None
+    PROXY_USERNAME: Optional[str] = get_secret("proxy_username")
+    PROXY_PASSWORD: Optional[str] = get_secret("proxy_password")
     PROXY_ENDPOINT: Optional[str] = None
     
     # ============================================
