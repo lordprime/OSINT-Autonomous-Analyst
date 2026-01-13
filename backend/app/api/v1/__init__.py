@@ -8,8 +8,10 @@ from app.api.deps import get_current_user
 # Import sub-routers (will be implemented by other agents)
 # from app.api.v1.endpoints import investigations, entities, collection, reasoning, audit
 
-# Enforce Authentication on ALL v1 endpoints
-router = APIRouter(dependencies=[Depends(get_current_user)])
+# Temporarily DISABLE authentication for development/demo
+# TODO: Re-enable after login system is built
+# router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()  # No auth required for now
 
 # Placeholder routes - will be expanded by Agent 3, 4, 5
 

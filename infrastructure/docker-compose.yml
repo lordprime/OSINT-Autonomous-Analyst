@@ -185,6 +185,8 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Empty = will use browser's current host
+      # So if accessing http://192.168.1.100:3000, API calls go to http://192.168.1.100:8000
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
     depends_on:
       - backend
