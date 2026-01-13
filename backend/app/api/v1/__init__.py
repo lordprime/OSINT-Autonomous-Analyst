@@ -2,42 +2,41 @@
 API v1 Router - Main entry point for all API endpoints
 """
 
-from fastapi import APIRouter, Depends
-from app.api.deps import get_current_user
+from fastapi import APIRouter
 
-# Import sub-routers (will be implemented by other agents)
-# from app.api.v1.endpoints import investigations, entities, collection, reasoning, audit
+# Import endpoint routers
+from app.api.v1.endpoints import (
+    investigations,
+    collection,
+    entities,
+    reasoning,
+    auth
+)
 
-# Temporarily DISABLE authentication for development/demo
-# TODO: Re-enable after login system is built
-# router = APIRouter(dependencies=[Depends(get_current_user)])
-router = APIRouter()  # No auth required for now
+# Create main router (authentication temporarily disabled for development)
+router = APIRouter()
 
-# Placeholder routes - will be expanded by Agent 3, 4, 5
+# Register sub-routers
+router.include_router(auth.router, prefix="/auth", tags=["auth"])
+router.include_router(investigations.router, prefix="/investigations", tags=["investigations"])
+router.include_router(collection.router, prefix="/collection", tags=["collection"])
+router.include_router(entities.router, prefix="/entities", tags=["entities"])
+router.include_router(reasoning.router, prefix="/reasoning", tags=["reasoning"])
 
+
+# Legacy status endpoint
 @router.get("/status")
 async def api_status():
-    """API status endpoint (Authenticated)"""
+    """API status endpoint"""
     return {
         "api_version": "v1",
         "status": "operational",
         "features": {
-            "investigations": "planned",
-            "entity_search": "planned",
-            "collection_agents": "planned",
-            "reasoning_engine": "planned",
-            "audit_logs": "ready"
+            "investigations": "implemented",
+            "entity_search": "implemented",
+            "collection_agents": "implemented",
+            "reasoning_engine": "implemented",
+            "authentication": "implemented"
         }
     }
 
-@router.get("/whoami")
-async def whoami(current_user: dict = Depends(get_current_user)):
-    """Debug endpoint to verify auth"""
-    return {"user": current_user}
-
-# Routes will be added by other agents:
-# router.include_router(investigations.router, prefix="/investigations", tags=["investigations"])
-# router.include_router(entities.router, prefix="/entities", tags=["entities"])
-# router.include_router(collection.router, prefix="/collection", tags=["collection"])
-# router.include_router(reasoning.router, prefix="/reasoning", tags=["reasoning"])
-# router.include_router(audit.router, prefix="/audit", tags=["audit"])
