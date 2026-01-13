@@ -1,184 +1,280 @@
-# 🔍 OSINT Autonomous Analyst (OAA)
+# OSINT Autonomous Analyst
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
-[![Docker](https://img.shields.io/badge/Docker-Required-blue.svg)](https://docker.com)
+**Production-ready OSINT intelligence platform** with AI-powered investigation, multi-source data collection, and knowledge graph analysis.
 
-A **government-grade autonomous intelligence platform** for Open Source Intelligence (OSINT) analysis. This system combines multi-database architecture, AI-powered reasoning, and real-time data collection to provide comprehensive intelligence capabilities.
+![Status](https://img.shields.io/badge/status-production--ready-green)
+![Docker](https://img.shields.io/badge/docker-required-blue)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![Next.js](https://img.shields.io/badge/next.js-14-black)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-| Requirement | Version | Check Command |
-|-------------|---------|---------------|
-| **Docker & Docker Compose** | Latest | `docker --version` |
-| **Python** | 3.11+ | `python --version` |
-| **Node.js** | 18+ | `node --version` |
-| **Git** | Any | `git --version` |
+- Docker & Docker Compose
+- Git
+- 8GB RAM minimum
 
 ### Installation
 
-#### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/lordprime/OSINT-Autonomous-Analyst.git
+# 1. Clone repository
+git clone https://github.com/lordprime/OSINT-Autonomous-Analyst
 cd OSINT-Autonomous-Analyst
-```
 
-#### Step 2: Configure Environment Variables
-```bash
-# Copy the example environment file
-cd backend
-cp .env.example .env   # Linux/Mac
-copy .env.example .env # Windows
+# 2. Generate secrets
+cd infrastructure
+chmod +x setup_secrets.sh
+./setup_secrets.sh
 
-# Edit the .env file and add your API keys
-```
-
-**LLM Options (choose ONE):**
-
-| Option | Cost | Setup |
-|--------|------|-------|
-| **Ollama** (Recommended) | FREE | Install from [ollama.ai](https://ollama.ai), run `ollama pull llama3:8b` |
-| **Groq** | FREE | Get free API key at [console.groq.com](https://console.groq.com) |
-| **Claude** | Paid | Get key from [Anthropic Console](https://console.anthropic.com/) |
-| **OpenAI** | Paid | Get key from [OpenAI Platform](https://platform.openai.com/) |
-
-**Data Collection (all optional):**
-- `TWITTER_BEARER_TOKEN` - Twitter/X
-- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` - Reddit
-- `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` - Telegram channels
-- `SHODAN_API_KEY` - Infrastructure reconnaissance
-
-**No API required:**
-- DuckDuckGo search
-- Instagram (public profiles)
-- LinkedIn (public pages)
-- Facebook (public pages)
-
-#### Step 3: Start All Services
-
-```bash
-# Navigate to infrastructure folder
-cd ../infrastructure
-
-# Generate Security Secrets (Required)
-# Linux/Mac:
-chmod +x setup_secrets.sh && ./setup_secrets.sh
-
-# Windows (run in git bash or manually create files in 'secrets' folder):
-# sh setup_secrets.sh
-
-# Start all Docker services (databases + backend + frontend)
+# 3. Start all services
 docker-compose up -d
+
+# 4. Initialize databases (wait 30 seconds for containers to be healthy)
+docker exec oaa_neo4j cypher-shell -u neo4j -p osint_secure_password_change_me \
+  -f /var/lib/neo4j/import/init.cypher
+
+docker exec oaa_neo4j cypher-shell -u neo4j -p osint_secure_password_change_me \
+  -f /var/lib/neo4j/import/init_extended.cypher
+
+docker exec -i oaa_timescale psql -U osint -d osint_temporal \
+  < ../database/timescale/schema.sql
+
+docker exec -i oaa_timescale psql -U osint -d osint_temporal \
+  < ../database/timescale/schema_extended.sql
+
+# 5. Access the application
 ```
 
-This will start:
-- **Neo4j** (Graph Database) - For relationship mapping
-- **TimescaleDB** (Time-Series Database) - For temporal data
-- **Elasticsearch** - For full-text search
-- **Redis** - For caching and rate limiting
-- **MinIO** - For object storage (S3-compatible)
-- **Backend API** (FastAPI) - Core application
-- **Frontend** (Next.js) - User interface
+**Frontend:** http://localhost:3000  
+**Backend API:** http://localhost:8000/api/docs
 
-#### Step 4: Verify Installation
+---
+
+## 📖 Usage Guide
+
+### 1. Create Investigation
+
+**Via UI:**
+1. Open http://localhost:3000
+2. Enter target (e.g., "example.com")
+3. Click "Create"
+4. Watch automatic collection begin
+
+**Via API:**
 ```bash
-# Check all containers are running
+curl -X POST http://localhost:8000/api/v1/investigations/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Investigation",
+    "target": "example.com",
+    "goal": "Gather intelligence on target"
+  }'
+```
+
+### 2. Start Data Collection
+
+Collections automatically start or trigger manually:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/collection/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "investigation_id": "YOUR_ID",
+    "agent_type": "duckduckgo",
+    "query": "example.com",
+    "max_results": 50
+  }'
+```
+
+**Available Agents:**
+- `duckduckgo` - Web search (no API key required)
+- `telegram` - Public channels (requires API key)
+- `instagram` - Public profiles (no API key)
+- `linkedin` - Company pages (no API key)
+- `facebook` - Public pages (no API key)
+
+### 3. View Results
+
+- **Dashboard:** Real-time graph updates
+- **Detail Page:** Click investigation to see entities, jobs, hypotheses
+- **API:** `GET /api/v1/investigations/{id}`
+
+### 4. Generate Insights
+
+**AI-powered analysis (requires Ollama or Groq):**
+
+```bash
+# Install Ollama (optional, for local LLM)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3:8b
+ollama serve
+
+# Generate hypotheses
+curl -X POST http://localhost:8000/api/v1/reasoning/hypotheses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "investigation_id": "YOUR_ID",
+    "text_context": "Investigation summary"
+  }'
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Frontend   │────▶│   Backend    │────▶│  Databases  │
+│  Next.js    │     │   FastAPI    │     │  Neo4j      │
+│  (Port 3000)│     │  (Port 8000) │     │  TimescaleDB│
+└─────────────┘     └──────────────┘     │  Elasticsearch
+                            │             └─────────────┘
+                            │
+                    ┌───────▼────────┐
+                    │  Collection    │
+                    │    Agents      │
+                    │ (5 sources)    │
+                    └────────────────┘
+```
+
+**Tech Stack:**
+- **Frontend:** Next.js 14, TypeScript, Tailwind CSS
+- **Backend:** Python 3.11, FastAPI, Pydantic
+- **Databases:** Neo4j (graph), TimescaleDB (time-series), Elasticsearch (search)
+- **Cache:** Redis
+- **Storage:** MinIO (S3-compatible)
+- **AI:** Ollama, Groq, Claude, OpenAI
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create `backend/.env` (copy from `.env.example`):
+
+```bash
+# Required
+NEO4J_URI=bolt://neo4j:7687
+TIMESCALE_HOST=timescale
+
+# Optional - LLM Providers
+OLLAMA_HOST=http://host.docker.internal:11434  # Local
+GROQ_API_KEY=your_key_here                      # Cloud (free tier)
+ANTHROPIC_API_KEY=your_key_here                 # Claude
+OPENAI_API_KEY=your_key_here                    # GPT-4
+
+# Optional - Collection Agents
+TELEGRAM_API_ID=your_id
+TELEGRAM_API_HASH=your_hash
+```
+
+### Rate Limits
+
+Edit `backend/app/middleware/rate_limiter.py`:
+
+```python
+REQUESTS_PER_MINUTE = 60      # Per IP
+REQUESTS_PER_HOUR = 1000      # Per IP
+COLLECTION_PER_HOUR = 100     # Collection jobs
+LLM_CALLS_PER_HOUR = 500      # AI reasoning
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run E2E tests
+cd backend
+pytest tests/test_e2e.py -v
+
+# Run agent tests
+pytest tests/test_agents.py -v
+
+# Check API health
+curl http://localhost:8000/health
+```
+
+---
+
+## 📊 API Reference
+
+**Full documentation:** http://localhost:8000/api/docs
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/investigations/create` | POST | Create investigation |
+| `/api/v1/investigations` | GET | List investigations |
+| `/api/v1/collection/start` | POST | Start data collection |
+| `/api/v1/collection/sources` | GET | Available sources |
+| `/api/v1/entities/search` | POST | Search entities |
+| `/api/v1/entities/graph/query` | POST | Query knowledge graph |
+| `/api/v1/reasoning/plan` | POST | Generate investigation plan |
+| `/api/v1/reasoning/hypotheses` | POST | Generate hypotheses |
+
+---
+
+## 🔒 Security
+
+### Production Checklist
+
+- [ ] Change default passwords in `infrastructure/secrets/*`
+- [ ] Enable HTTPS (use nginx reverse proxy)
+- [ ] Configure firewall (allow only 3000, 8000)
+- [ ] Enable authentication (uncomment in `api/v1/__init__.py`)
+- [ ] Rotate secrets monthly
+- [ ] Monitor rate limiting logs
+- [ ] Regular security updates
+
+### Built-in Security
+
+- ✅ Rate limiting (60 req/min per IP)
+- ✅ Input validation (Pydantic schemas)
+- ✅ SQL injection protection (parameterized queries)
+- ✅ CORS configuration
+- ✅ Secrets management (Docker secrets)
+
+---
+
+## 🐛 Troubleshooting
+
+### Container won't start
+```bash
+# Clean rebuild
+docker-compose down -v --remove-orphans
+docker-compose up -d --build
+```
+
+### Database connection errors
+```bash
+# Check health
 docker ps
 
-# Check backend health
-curl http://localhost:8000/health/detailed
-# On Windows PowerShell: Invoke-RestMethod http://localhost:8000/health/detailed
+# View logs
+docker-compose logs backend
+docker-compose logs neo4j
 ```
 
----
-
-## 📱 Accessing the Application
-
-Once all services are running, access the application through:
-
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Frontend Dashboard** | http://localhost:3000 | - |
-| **Backend API Docs** | http://localhost:8000/docs | - |
-| **Neo4j Browser** | http://localhost:7474 | `neo4j` / `osint_secure_password_change_me` |
-| **MinIO Console** | http://localhost:9001 | `osint_admin` / `osint_minio_password_change_me` |
-| **Elasticsearch** | http://localhost:9200 | - |
-
----
-
-## 🎯 How to Use
-
-### 1. Chat-Based Investigation (Recommended)
-
-The primary interface is a **chat console** where you can ask natural language questions:
-
-```
-Example queries:
-- "Find all entities connected to Acme Corporation"
-- "Show me the timeline of events related to John Doe"
-- "Identify potential shell companies in the Panama region"
-- "Map the organizational structure of XYZ Holdings"
-```
-
-### 2. Graph Exploration
-
-Use the **interactive graph view** to:
-- Visualize entity relationships
-- Click nodes to drill down into details
-- Filter by entity type (Person, Organization, Location, etc.)
-- Export subgraphs for reports
-
-### 3. Creating Investigations
-
-1. Open the Dashboard at http://localhost:3000
-2. Click "New Investigation"
-3. Enter your investigation name and target entities
-4. The AI will autonomously:
-   - Plan collection tasks
-   - Gather data from multiple sources
-   - Build relationship graphs
-   - Generate hypotheses and risk scores
-
----
-
-## 🛠️ Development Setup
-
-For local development without Docker:
-
-### Backend
+### Frontend shows "Failed to load"
 ```bash
-cd backend
+# Check backend is running
+curl http://localhost:8000/health
 
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-./venv/Scripts/activate   # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Rebuild frontend
+docker-compose up -d --build frontend
 ```
 
-### Frontend
+### Collection jobs stuck "pending"
 ```bash
-cd frontend
+# Check backend logs
+docker logs oaa_backend | grep collection
 
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
+# Verify agent is configured (API keys, etc.)
 ```
 
 ---
@@ -187,154 +283,62 @@ npm run dev
 
 ```
 OSINT-Autonomous-Analyst/
-├── backend/              # FastAPI application
+├── backend/
 │   ├── app/
-│   │   ├── main.py       # Application entry point
-│   │   ├── core/         # Configuration, database, audit
-│   │   ├── api/v1/       # API routes
-│   │   └── agents/       # Collection & reasoning agents
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/             # Next.js application
-│   ├── src/
-│   │   ├── app/          # Pages and routes
-│   │   ├── components/   # UI components
-│   │   └── lib/          # Utilities and API client
-│   └── package.json
-├── infrastructure/       # Docker orchestration
-│   └── docker-compose.yml
-├── database/             # Database initialization scripts
-│   ├── neo4j/            # Graph schema
-│   └── timescale/        # Temporal schema
-└── tests/                # Test suites
+│   │   ├── api/v1/endpoints/      # API routes
+│   │   ├── agents/                # Collection agents
+│   │   ├── use_cases/             # Business logic
+│   │   ├── schemas/               # Data models
+│   │   └── middleware/            # Rate limiting, etc.
+│   └── tests/                     # Test suites
+├── frontend/
+│   └── src/
+│       ├── app/                   # Next.js pages
+│       └── lib/                   # API client
+├── database/
+│   ├── neo4j/                     # Graph schemas
+│   ├── timescale/                 # Time-series schemas
+│   └── elasticsearch/             # Search mappings
+└── infrastructure/
+    ├── docker-compose.yml         # Service orchestration
+    └── secrets/                   # Generated secrets
 ```
 
 ---
 
-## 🔧 Configuration
+## 🤝 Contributing
 
-### Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ANTHROPIC_API_KEY` | Claude AI API key | Yes |
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
-| `NEO4J_PASSWORD` | Neo4j database password | Auto-set |
-| `TWITTER_BEARER_TOKEN` | Twitter API access | Optional |
-| `SHODAN_API_KEY` | Shodan API access | Optional |
-| `ENABLE_DARK_WEB_COLLECTION` | Enable Tor-based collection | Optional |
-
-### Feature Flags
-
-Control features in `.env`:
-```bash
-ENABLE_DENIED_ACTION_LOGGING=true    # Log blocked operations
-ENABLE_HYPOTHESIS_GENERATION=true     # AI hypothesis generation
-ENABLE_DARK_WEB_COLLECTION=false     # Dark web crawling (requires Tor)
-ENABLE_GEOSPATIAL_ANALYTICS=true     # Map-based visualization
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-cd backend
-pytest
-
-# Run with coverage
-pytest --cov=app tests/
-
-# Run specific test suite
-pytest tests/unit/ -v
-pytest tests/integration/ -v
-pytest tests/security/red_team.py -v
-```
-
----
-
-## 🔐 Security Notes
-
-- **Change all default passwords** in production
-- Store API keys securely (never commit `.env` files)
-- The system logs all queries for audit purposes
-- Enable `ENABLE_DARK_WEB_COLLECTION` only in isolated environments
-
----
-
-## 📊 API Reference
-
-### Health Check
-```bash
-GET /health/detailed
-```
-
-### Create Investigation
-```bash
-POST /api/v1/investigations
-Content-Type: application/json
-
-{
-  "name": "Investigation Name",
-  "targets": ["Entity 1", "Entity 2"]
-}
-```
-
-### Execute Query
-```bash
-POST /api/v1/investigations/{id}/query
-Content-Type: application/json
-
-{
-  "query": "Find connections to Acme Corp"
-}
-```
-
-Full API documentation available at: http://localhost:8000/docs
-
----
-
-## 🆘 Troubleshooting
-
-### Docker Issues
-```bash
-# Reset all containers
-docker-compose down -v
-docker-compose up -d --build
-
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f neo4j
-```
-
-### Port Conflicts
-If ports are in use, modify `docker-compose.yml`:
-```yaml
-ports:
-  - "3001:3000"  # Change frontend port
-  - "8001:8000"  # Change backend port
-```
-
-### Database Connection Errors
-Ensure all database containers are healthy:
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}"
-```
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- Built with government-grade security from Day 1
-- Powered by Neo4j, TimescaleDB, Elasticsearch, and AI reasoning engines
+- **Neo4j** for graph database
+- **TimescaleDB** for time-series analytics
+- **FastAPI** for backend framework
+- **Next.js** for frontend
+- **Ollama** for local LLM inference
+- **Groq** for cloud LLM
 
 ---
 
-**⚠️ Disclaimer:** This tool is intended for lawful intelligence gathering and research purposes only. Users are responsible for ensuring compliance with all applicable laws and regulations in their jurisdiction.
+## 📞 Support
+
+- **Issues:** https://github.com/lordprime/OSINT-Autonomous-Analyst/issues
+- **Discussions:** https://github.com/lordprime/OSINT-Autonomous-Analyst/discussions
+- **Documentation:** See `/docs` folder
+
+---
+
+**Built with ❤️ for the OSINT community**
